@@ -1,0 +1,19 @@
+# --- Core app ---
+streamlit
+pypdf
+python-docx
+
+# --- AI model (local, free, no API key) ---
+# transformers + torch power the local t5-small summarization model.
+#
+# IMPORTANT (Windows/Mac/Linux, normal internet): install torch from the
+# official CPU-only index so you get the small (~200MB) CPU build instead
+# of the huge (multi-GB) default CUDA build:
+#
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements.txt
+#
+# (If you have an NVIDIA GPU and want faster inference, skip that line and
+# just let this file install the default GPU-enabled torch build instead.)
+transformers
+sentencepiece

@@ -1,0 +1,23 @@
+# Virtual environments
+venv/
+venv2/
+env/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Model cache (downloaded automatically by transformers on first run)
+.cache/
+*.cache/
+
+# Streamlit
+.streamlit/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
