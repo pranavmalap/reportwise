@@ -2,8 +2,13 @@
 summarizer.py
 Core summarization engine for the Report Summarizer app.
 
-Uses a local Hugging Face summarization model (t5-small by default) so the
-whole app runs offline with no API key and no per-call cost.
+Uses a local Hugging Face model (t5-small by default) so the whole app
+runs offline with no API key and no per-call cost.
+
+Loads the model/tokenizer directly (AutoModelForSeq2SeqLM + generate())
+rather than going through transformers' pipeline("summarization", ...)
+wrapper -- the pipeline task registry has changed across transformers
+versions, so calling the model directly is more robust and version-proof.
 
 Day 1 goal: a working summarize() function that can be called on any block
 of text, with automatic chunking for inputs longer than the model's token
@@ -11,11 +16,12 @@ limit. File parsing (PDF/DOCX) is handled separately in Day 2.
 """
 
 from functools import lru_cache
-from transformers import pipeline, AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 # t5-small is fast and lightweight (~240MB), good for CPU-only local use.
 # Swap to "facebook/bart-large-cnn" here for noticeably better quality if
-# your machine can handle a slower, larger (~1.6GB) model.
+# your machine can handle a slower, larger (~1.6GB) model. (bart does not
+# use a task prefix -- see T5_PREFIX below.)
 MODEL_NAME = "t5-small"
 
 # t5 models expect a task prefix for summarization.
@@ -27,17 +33,19 @@ MAX_CHUNK_TOKENS = 450
 
 
 @lru_cache(maxsize=1)
-def _get_pipeline():
-    """
-    Load and cache the summarization pipeline so the model is only loaded
-    into memory once, no matter how many times summarize() is called.
-    """
-    return pipeline("summarization", model=MODEL_NAME, tokenizer=MODEL_NAME)
+def _get_tokenizer():
+    return AutoTokenizer.from_pretrained(MODEL_NAME)
 
 
 @lru_cache(maxsize=1)
-def _get_tokenizer():
-    return AutoTokenizer.from_pretrained(MODEL_NAME)
+def _get_model():
+    """
+    Load and cache the model so it's only loaded into memory once, no
+    matter how many times summarize() is called.
+    """
+    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+    model.eval()
+    return model
 
 
 def _split_into_chunks(text: str, max_tokens: int = MAX_CHUNK_TOKENS) -> list[str]:
@@ -74,6 +82,34 @@ def _split_into_chunks(text: str, max_tokens: int = MAX_CHUNK_TOKENS) -> list[st
     return chunks if chunks else [text]
 
 
+def _summarize_chunk(chunk: str, max_len: int, min_len: int) -> str:
+    tokenizer = _get_tokenizer()
+    model = _get_model()
+
+    model_input = T5_PREFIX + chunk if "t5" in MODEL_NAME else chunk
+    inputs = tokenizer(
+        model_input,
+        return_tensors="pt",
+        truncation=True,
+        max_length=512,
+    )
+
+    import torch
+
+    with torch.no_grad():
+        output_ids = model.generate(
+            **inputs,
+            max_length=max_len,
+            min_length=min_len,
+            num_beams=4,
+            length_penalty=2.0,
+            no_repeat_ngram_size=3,
+            early_stopping=True,
+        )
+
+    return tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
+
+
 def summarize(text: str, max_len: int = 150, min_len: int = 30) -> str:
     """
     Summarize a block of text using the local model.
@@ -93,19 +129,8 @@ def summarize(text: str, max_len: int = 150, min_len: int = 30) -> str:
     if not text:
         return ""
 
-    summarizer_pipeline = _get_pipeline()
     chunks = _split_into_chunks(text)
-
-    summaries = []
-    for chunk in chunks:
-        model_input = T5_PREFIX + chunk if "t5" in MODEL_NAME else chunk
-        result = summarizer_pipeline(
-            model_input,
-            max_length=max_len,
-            min_length=min_len,
-            do_sample=False,
-        )
-        summaries.append(result[0]["summary_text"].strip())
+    summaries = [_summarize_chunk(chunk, max_len, min_len) for chunk in chunks]
 
     return " ".join(summaries)
 
