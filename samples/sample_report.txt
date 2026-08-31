@@ -1,0 +1,33 @@
+Customer Support Operations Review - August 2026
+
+Executive Summary
+
+This review covers customer support operations for the month of August. Average
+first-response time improved to 4.2 hours, down from 6.8 hours in July, following
+the rollout of an updated ticket triage system. Customer satisfaction scores rose
+to 4.3 out of 5, the highest recorded in the past twelve months. Ticket volume
+increased by 9 percent month-over-month, largely due to a product update that
+introduced a temporary billing display bug, now resolved.
+
+Staffing and Training
+
+Two new support agents completed onboarding this month, bringing the total team
+size to fourteen. A refreshed training module on de-escalation techniques was
+introduced, and early feedback suggests it has reduced the average handling time
+for complex tickets by roughly 15 percent. Agent attrition remained low, with no
+departures reported during the review period.
+
+Channel Performance
+
+Live chat continues to be the fastest channel, with a median resolution time of
+under twenty minutes. Email support lagged behind, with a median resolution time
+of just under one business day. Phone support saw the largest improvement, with
+average wait times dropping from eleven minutes to under five minutes after two
+additional agents were cross-trained to handle phone queues during peak hours.
+
+Recommendations
+
+The team recommends continuing investment in the triage system, expanding the
+de-escalation training to all existing agents by the end of next quarter, and
+evaluating a dedicated billing support queue given the disproportionate share of
+billing-related tickets observed this month.
