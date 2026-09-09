@@ -3,17 +3,21 @@ extractors.py
 Turn uploaded report files (PDF, DOCX, TXT) into clean plain text that the
 summarizer can consume.
 
-Day 2 goal: extract_text(file_path_or_bytes) -> str, working for all three
-formats, with basic cleanup of page numbers / headers / footers / stray
-whitespace that commonly pollute extracted report text.
+Day 4: adds clearer errors for common failure modes (password-protected
+PDFs, corrupted files, unsupported extensions) so the UI layer can show a
+friendly message instead of a raw traceback.
 """
 
-import io
 import re
 from pathlib import Path
 
 from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 from docx import Document
+
+
+class UnsupportedFileTypeError(ValueError):
+    """Raised when a file's extension isn't one extract_text() supports."""
 
 
 # ---------------------------------------------------------------------------
@@ -29,8 +33,26 @@ def extract_pdf(file) -> str:
 
     Returns:
         Extracted text with a blank line between pages.
+
+    Raises:
+        ValueError: if the PDF is password-protected and can't be read.
     """
     reader = PdfReader(file)
+
+    if reader.is_encrypted:
+        # try an empty password first -- some PDFs are "encrypted" with no
+        # real password set, just an owner-permissions lock
+        try:
+            reader.decrypt("")
+        except Exception:
+            pass
+
+    if reader.is_encrypted:
+        raise ValueError(
+            "This PDF is password-protected. Please remove the password "
+            "and upload it again."
+        )
+
     pages_text = []
     for page in reader.pages:
         text = page.extract_text() or ""
@@ -170,19 +192,27 @@ def extract_text(file, filename: str | None = None) -> str:
         Cleaned extracted text.
 
     Raises:
-        ValueError: if the file extension isn't supported.
+        UnsupportedFileTypeError: if the file extension isn't supported.
+        ValueError: if the file is password-protected.
+        Exception: extraction library errors (e.g. a corrupted PDF) are
+            left to propagate so callers can decide how to present them --
+            catch broadly at the UI layer.
     """
     name = filename or str(file)
     ext = Path(name).suffix.lower()
 
     extractor = EXTRACTORS.get(ext)
     if extractor is None:
-        raise ValueError(
+        raise UnsupportedFileTypeError(
             f"Unsupported file type '{ext}'. Supported types: "
             f"{', '.join(EXTRACTORS.keys())}"
         )
 
-    raw_text = extractor(file)
+    try:
+        raw_text = extractor(file)
+    except PdfReadError as exc:
+        raise ValueError(f"This PDF appears to be corrupted or invalid: {exc}") from exc
+
     return clean_text(raw_text)
 
 
